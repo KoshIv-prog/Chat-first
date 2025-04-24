@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат</title>
+    <link rel="stylesheet" href="/css/chat.css">
+</head>
+<body>
+<div class="chat-container">
+    <div class="chat-window">
+        <div class="messages" id="messages"></div>
+        <div class="input-area">
+            <input type="text" placeholder="Напишіть повідомлення..." id="text-to-send">
+            <button id="send-message" onclick=sendMessageButton()>Відправити</button>
+        </div>
+    </div>
+    <div class="chat-list">
+        <h2>Чати</h2>
+        <div class="chat-list-content">
+            <ul id="chat-list"></ul>
+        </div>
+
+        <div class="add-chat-container">
+            <button class="add-chat-btn" onclick="toggleChatForm()">Додати чат</button>
+        </div>
+
+        <div id="overlay" class="overlay">
+            <div id="add-chat-form" class="add-chat-form">
+                <div class="add-chat-header">
+                    <h3>Додавання чату</h3>
+                    <span class="close-form" onclick="toggleChatForm()">×</span>
+                </div>
+                <div class="chat-form-body">
+                    <div class="add-chat-left">
+                        <div class="chat-type-switch">
+                            <label><input type="radio" name="chatType" value="personal" checked> Персональний</label>
+                            <label><input type="radio" name="chatType" value="group"> Груповий</label>
+                        </div>
+                        <input type="text" id="new-chat-name" placeholder="Назва чату" />
+                    </div>
+                    <div class="add-chat-right">
+                        <div id="user-selection">
+                            <div class="user-filter">
+                                <input type="text" id="user-filter-pattern" placeholder="Пошук користувача...">
+                                <button onclick="applyUserFilter()">Пошук</button>
+                            </div>
+                            <div id="user-list-container"></div>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="addChat()">Далі</button>
+                <div id="error-message" style="color: red; margin-top: 5px;"></div>
+            </div>
+        </div>
+    </div>
+    </div>
+</div>
+</body>
+<script>
+    var currentChatId = null;
+    var userName = null;
+    var currentMessageList = null;
+    var stompClient = null;
+    var selectedUsers = new Set();
+    var isEditing = false;
+
+    function connectSocket() {
+        var socket = new SockJS('/chat');
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, function (frame) {
+            console.log('Connected: ' + frame);
+            stompClient.subscribe('/topic/messages-for-user-'+userName, function (msg) {
+                var json = JSON.parse(msg.body)
+                console.log(json)
+
+                console.log(json.chatId === currentChatId)
+
+                if (json.chatId === currentChatId) {
+                    if (json.method === "ADD_MESSAGE") {
+                        showMessage(json.author, json.text, json.date, json.id)
+                    } else if (json.method === "REMOVE_MESSAGE") {
+                        deleteMessageForUser(json.id)
+                    } else if (json.method === "CHANGE_MESSAGE") {
+                        editMessageForUser(json.id, json.text)
+                    } else if (json.method === "ACCESS_ERROR") {
+                        alert("У вас немає доступу")
+                    }
+                }else{
+
+                    const chatItem = document.getElementById("chat-" + json.chatId);
+                    if (!chatItem) return;
+                    const badge = chatItem.querySelector('.new-message-badge');
+                    if (!badge) return;
+
+                    console.log(badge.textContent.valueOf())
+
+                    badge.textContent = parseInt(badge.textContent.valueOf()) + 1;
+                    if (badge.textContent > 0) {
+                        badge.style.display = 'flex';
+                    }
+                }
+            });
+        });
+
+        socket.onclose = function() {
+            console.warn('Зʼєднання втрачено. Повторне підключення...');
+            setTimeout(connectSocket, 3000);
+        };
+    }
+
+    async function getUser() {
+        try {
+            const response = await fetch('/get_user');
+            const data = await response.json();
+            userName = data.name;
+        } catch (error) {
+            console.error('Помилка завантаження користувача:', error);
+        }
+    }
+
+    function loadChats(){
+        const chatList = document.getElementById('chat-list');
+        chatList.innerHTML='';
+
+        fetch('/get_user_chats')
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(chat => {
+                    const chatToShow =showChat(chat.id,chat.chatName,chat.unNotified);
+                    chatList.appendChild(chatToShow);
+                });
+            })
+            .catch(error => console.error('Помилка завантаження чатів:', error));
+    }
+
+
+    function showChat(chatId, chatName, unreadCount) {
+        const chatItem = document.createElement('li');
+        chatItem.classList.add('chat-item');
+        //chatItem.dataset.chatId = chatId;
+        chatItem.id = "chat-"+chatId;
+
+
+
+        const chatLeft = document.createElement('div');
+        chatLeft.classList.add('chat-left');
+            const badge = document.createElement('span');
+            badge.classList.add('new-message-badge');
+            if (unreadCount > 0 && currentChatId !== chatItem.id.replace("chat-","")) {
+                badge.textContent = unreadCount;
+                badge.style.display = 'flex';
+            } else {
+                badge.textContent = 0;
+                badge.style.display = 'none';
+            }
+
+            const nameSpan = document.createElement('span');
+            nameSpan.classList.add('chat-name');
+            nameSpan.textContent = chatName;
+        chatLeft.appendChild(badge);
+        chatLeft.appendChild(nameSpan);
+
+        const chatRight = document.createElement('div');
+        chatRight.classList.add('chat-right');
+            const menuBtn = document.createElement('button');
+            menuBtn.classList.add('chat-options-btn');
+            menuBtn.innerHTML = '⋮';
+            menuBtn.onclick = function (event) {
+                toggleChatMenu(event, menuBtn);
+            };
+
+            const menu = document.createElement('div');
+            menu.classList.add('chat-options-menu');
+
+            const infoItem = document.createElement('div');
+            infoItem.textContent = 'Інформація';
+            infoItem.onclick = function () {
+                showChatInfo(chatId);
+            };
+
+            const addItem = document.createElement('div');
+            addItem.textContent = 'Додати користувача';
+            addItem.onclick = function () {
+                openAddUserToChat(chatId);
+            };
+            menu.appendChild(infoItem);
+            menu.appendChild(addItem);
+        chatRight.appendChild(menuBtn);
+        chatRight.appendChild(menu);
+
+        if (chatItem.id.replace("chat-","") === currentChatId){
+            chatItem.style.backgroundColor = '#d4edda'
+        }
+
+
+        chatItem.onclick = function () {
+            getChatMessages(chatId, currentChatId);
+
+            const badge = chatItem.querySelector('.new-message-badge');
+            if (badge.textContent > 0) {
+                badge.textContent = 0;
+                badge.style.display = 'none';
+            }//TODO badge.textContent
+            //TODO if in opened window
+        };
+
+        chatItem.appendChild(chatLeft);
+        chatItem.appendChild(chatRight);
+        return chatItem;
+    }
+
+    function toggleChatMenu(event, button) {
+        event.stopPropagation();
+        document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('show-menu'));
+        const chatItem = button.closest('.chat-item');
+        chatItem.classList.toggle('show-menu');
+    }
+
+    function getChatMessages(chatId, fromChatId) {
+        if (fromChatId != null && document.getElementById("chat-" + fromChatId)) {
+            document.getElementById("chat-" + fromChatId).style.backgroundColor = '#F4F4F4FF';
+        }
+        if (document.getElementById("chat-" + chatId)) {
+            document.getElementById("chat-" + chatId).style.backgroundColor = '#d4edda';
+        }
+
+        localStorage.setItem('lastChat', chatId);
+        currentChatId = chatId;
+        currentMessageList = document.getElementById('messages');
+        currentMessageList.innerHTML='';
+
+        fetch('/get_chat_messages?chatId=' + chatId)
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(msg => {
+                    showMessage(msg.author,msg.text,msg.date,msg.id)
+                });
+                currentMessageList.scrollTop = currentMessageList.scrollHeight;
+            })
+            .catch(error => {
+                console.error('Помилка завантаження повідомлень:', error)}
+            );
+
+    }
+
+
+
+    function showMessage(author,text,date ,id  ){
+        const newMessage = document.createElement('div');
+        const isMyMessage = author === userName ? 'user' : 'other'
+        newMessage.classList.add('message', isMyMessage, `message-${id}`);
+
+        newMessage.id = "message-"+id;
+        newMessage.innerHTML = `
+
+                 <span class="author">${author}</span>
+                 <div class="message-options-wrapper">
+                     <button class="message-options-btn" onclick="toggleDropdown(this)">⋮</button>
+                     <div class="message-dropdown-content">
+                         <a onclick="startEditMessage(${id}, \`${text.replace(/`/g, '\\`')}\`)">Редагувати</a>
+                         <a onclick=hideMessageForUser(${id})>Видалити для мене</a>
+                         <a onclick=deleteMessageById(${id})>Видалити</a>
+                     </div>
+                 </div>
+
+
+                <span class="text">${text.replace(/\n/g, '<br>')}</span>
+                <span class="timestamp">${new Date(date).toLocaleString('uk-UA', {
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit'
+                    })}</span>
+
+`;
+
+        currentMessageList.appendChild(newMessage);
+        currentMessageList.scrollTop = currentMessageList.scrollHeight;
+    }
+
+    function hideMessageForUser(id){
+        fetch('/hide-message-for-user', {
+            method: 'POST',
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({id:id, author:userName})
+        })
+            .then(response => response.text())
+            .then(data => {
+                if (data.includes('OK')) {
+                    deleteMessageForUser(id)
+                } else {
+                }
+            })
+            .catch(error => {
+                console.log(error)
+            });
+    }
+
+
+    function deleteMessageById(messageId) {
+        stompClient.send("/app/sendMessage",{},JSON.stringify({id:messageId,method:"REMOVE_MESSAGE"}))
+    }
+
+    function deleteMessageForUser(messageId) {
+        console.log("deleting message"+messageId)
+            const messageElement = document.getElementById(`message-${messageId}`);
+            if (messageElement) {
+                messageElement.remove();
+            } else {
+                console.warn(`Повідомлення з ID ${messageId} не знайдено`);
+            }
+    }
+
+    function startEditMessage(id, oldText) {
+        const textInput = document.getElementById('text-to-send');
+        textInput.value = oldText.replace(/<br>/g, '\n'); // Повертаємо перенос рядків
+
+        isEditing = true;
+        textInput.focus();
+        textInput.dataset.editId = id;
+    }
+
+    function editMessageForUser(messageId, newText) {
+        const messageElement = document.getElementById(`message-${messageId}`);
+        if (messageElement) {
+            const textElement = messageElement.querySelector('.text');
+            if (textElement) {
+                textElement.innerHTML = newText.replace(/\n/g, '<br>');
+            }
+        } else {
+            console.warn(`Повідомлення з ID ${messageId} не знайдено`);
+        }
+    }
+
+    function toggleDropdown(button) {
+        const wrapper = button.closest('.message-options-wrapper');
+        document.querySelectorAll('.message-options-wrapper.open').forEach(w => {
+            if (w !== wrapper) w.classList.remove('open');
+        });
+        wrapper.classList.toggle('open');
+    }
+
+    document.addEventListener('click', function(event) {
+        const isDropdownChat = event.target.closest('.show-menu');
+        if (!isDropdownChat) {
+            document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('show-menu'));
+        }
+
+        const isDropdownMessage = event.target.closest('.message-options-wrapper');
+        if (!isDropdownMessage) {
+            document.querySelectorAll('.message-options-wrapper.open').forEach(w => {
+                w.classList.remove('open');
+            });
+        }
+    });
+
+    function sendMessageButton(){
+        const textInput = document.getElementById('text-to-send');
+        const text = textInput.value.trim();
+        if (text === "") return;
+
+        if (!stompClient || !stompClient.connected) {
+            alert("З'єднання з WebSocket ще не встановлено.");
+            return;
+        }
+
+        if (isEditing && textInput.dataset.editId) {
+            stompClient.send("/app/sendMessage", {}, JSON.stringify({
+                id: textInput.dataset.editId,
+                text: text,
+                method: "CHANGE_MESSAGE"
+            }));
+            isEditing = false;
+            delete textInput.dataset.editId;
+        } else {
+            stompClient.send("/app/sendMessage", {}, JSON.stringify({
+                chatId: currentChatId,
+                text: text,
+                method: "ADD_MESSAGE"
+            }));
+        }
+
+        textInput.value = '';
+    }
+
+    document.getElementById('text-to-send').addEventListener("keyup", function(event) {
+        if (event.key === "Enter") {
+            sendMessageButton();
+        }
+    });
+
+
+    function toggleChatForm() {
+        const form = document.getElementById('add-chat-form');
+        const overlay = document.getElementById('overlay');
+        const userSelection = document.getElementById('user-selection');
+
+        const isVisible = form.style.display === 'block';
+
+        if (userSelection.style.display ===  "none" ){
+            loadUserList();
+        }
+        userSelection.style.display = isVisible ? "none" : 'block'
+        form.style.display = isVisible ? 'none' : 'block';
+        overlay.style.display = isVisible ? 'none' : 'block';
+    }
+
+    function addChat() {
+
+        const chatName = document.getElementById('new-chat-name').value;
+        if (chatName.trim() === "") {
+            alert("Введіть назву чату.");
+            return;
+        }
+        let checked = document.querySelector('input[name="chatType"]:checked').value;
+
+        var isGroup = (checked === "group");
+
+        const checkboxes = document.querySelectorAll('#user-selection input[type="checkbox"]:checked');
+        let users = [userName, ...Array.from(selectedUsers)];
+        checkboxes.forEach(cb => users.push(cb.value));
+
+        if (isGroup && users.length < 2) {
+            alert("Додайте хоча б одного учасника для групового чату.");
+            return;
+        }else if(!isGroup && users.length != 2){
+            alert("Можна додати лише 1 учасника")
+            return;
+        }
+
+
+        confirmAddingChat(isGroup, users, chatName)
+    }
+    function loadUserList(filter = '') {
+        const page = 0;
+        fetch(`/search-users?pattern=${encodeURIComponent(filter)}&page=${page}`)
+            .then(response => response.json())
+            .then(users => {
+                const container = document.getElementById('user-list-container');
+                container.innerHTML = '';
+
+                users.forEach(user => {
+                    if (user.name !== userName) {
+                        const div = document.createElement('div');
+                        div.classList.add('user-entry');
+                        div.dataset.username = user.name;
+                        div.style.padding = "5px";
+                        div.style.border = "1px solid #ccc";
+                        div.style.marginBottom = "5px";
+                        div.style.borderRadius = "4px";
+                        div.style.display = "flex";
+                        div.style.justifyContent = "space-between";
+                        div.style.alignItems = "center";
+                        div.style.backgroundColor = "white";
+
+                        const nameSpan = document.createElement('span');
+                        nameSpan.textContent = user.name;
+
+                        const addBtn = document.createElement('button');
+                        addBtn.textContent = '+';
+                        addBtn.classList.add('user-add-btn');
+                        addBtn.style.backgroundColor = '#007bff';
+                        addBtn.style.color = 'white';
+                        addBtn.style.border = 'none';
+                        addBtn.style.borderRadius = '4px';
+                        addBtn.style.padding = '5px';
+                        addBtn.style.width = '32px';
+                        addBtn.style.textAlign = 'center';
+                        addBtn.style.fontWeight = 'bold';
+                        addBtn.style.fontSize = '16px';
+                        addBtn.style.cursor = 'pointer';
+
+                        addBtn.onclick = () => toggleUserSelection(user.name, div, addBtn);
+
+                        if (selectedUsers.has(user.name)){
+                            div.style.backgroundColor = '#d4edda';
+                            addBtn.textContent = "×"
+                        }
+
+                        div.appendChild(nameSpan);
+                        div.appendChild(addBtn);
+                        container.appendChild(div);
+                    }
+                });
+            })
+            .catch(error => console.error('Помилка завантаження користувачів:', error));
+    }
+
+    function toggleUserSelection(username, containerDiv, buttonDiv) {
+        if (selectedUsers.has(username)) {
+            selectedUsers.delete(username);
+            buttonDiv.textContent="+"
+            containerDiv.style.backgroundColor = 'white';
+        } else {
+            selectedUsers.add(username);
+            buttonDiv.textContent = "×"
+            containerDiv.style.backgroundColor = '#d4edda'; // світло-зелений
+        }
+    }
+
+    function applyUserFilter() {
+        const pattern = document.getElementById('user-filter-pattern').value;
+        loadUserList(pattern);
+    }
+
+
+
+    function confirmAddingChat(isGroupChat, users, chatName){
+        fetch('/create-new-chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({isGroupChat:isGroupChat, userAdmin:userName, chatName:chatName, users:users})
+        })
+            .then(response => response.text())
+            .then(data => {
+                if (data.includes('OK')) {
+                    loadChats();
+                } else {
+                    document.getElementById('error-message').textContent = data.toString();
+                }
+            })
+            .catch(error => {
+                document.getElementById('error-message').textContent = error;
+            });
+
+        toggleChatForm();
+    }
+
+    window.onload = async function () {
+        await getUser();
+        loadUserList();
+        loadChats();
+        connectSocket();
+
+        const lastChat = localStorage.getItem('lastChat');
+        if (lastChat) {
+            getChatMessages(lastChat,null);
+        }
+    };
+
+
+
+</script>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+</html>

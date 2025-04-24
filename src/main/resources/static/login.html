@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login & Register</title>
+    <link rel="stylesheet" href="/css/login.css">
+</head>
+<body>
+<div class="container" id="auth-container">
+    <h2>Login</h2>
+    <form method="POST" action="/j_spring_security_check">
+        <input type="text" name="j_login" placeholder="login" required>
+        <input type="password" name="j_password" placeholder="password" required>
+        <button type="submit">Увійти</button>
+    </form>
+    <tr>
+        <td><span id="messageSpan"></span></td>
+    </tr>
+    <p class="toggle" onclick="window.location.href='/register.html'">Ще не маєте акаунту? Зареєструватися</p>
+</div>
+</body>
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    if(urlParams.get("error") === "true") {
+        const messageSp = document.getElementById("messageSpan")
+        messageSp.textContent = "Error occupied!"
+    }
+</script>
+</html>

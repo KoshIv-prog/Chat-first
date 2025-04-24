@@ -1,0 +1,46 @@
+package org.example.chat.service;
+
+
+import org.example.chat.dto.UserDTO;
+import org.example.chat.dto.response.Response;
+import org.example.chat.domain.User;
+import org.example.chat.domain.UserStatus;
+import org.example.chat.repository.UserRepository;
+import org.springframework.data.annotation.ReadOnlyProperty;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+
+import javax.transaction.Transactional;
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+public class UserService {
+    private final UserRepository userRepository;
+
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @Transactional
+    public Response addUser(String username, String password) {
+        if (userRepository.existsUserByName(username)) {
+            return Response.REGISTER_ERROR;
+        }
+
+        userRepository.save(new User(null, username, password, new ArrayList<>(), UserStatus.USER));
+        return Response.OK;
+    }
+
+    @Transactional()
+    @ReadOnlyProperty()
+    public List<UserDTO> findByPattern(String pattern, Pageable pageable) {
+        List<UserDTO> users = new ArrayList<>();
+        userRepository.findByPattern(pattern, pageable).forEach(user -> users.add(UserDTO.toDTO(user)));
+        return users;
+    }
+
+    public User findUserByUsername(String username) {
+        return userRepository.findUserByName(username).orElse(null);
+    }
+}

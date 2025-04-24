@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Реєстрація</title>
+  <link rel="stylesheet" href="/css/login.css">
+</head>
+<body>
+<div class="container">
+  <h2>Реєстрація</h2>
+  <form id="register-form">
+    <input type="text" id="name" name="name" placeholder="Ім'я" required>
+    <input type="password" id="password" name="password" placeholder="Пароль" required>
+    <button type="submit">Зареєструватися</button>
+  </form>
+  <p class="toggle" onclick="window.location.href='/login.html'">Вже маєте акаунт? Увійти</p>
+  <p id="error-message" class="error-message"></p>
+</div>
+
+<script>
+  document.getElementById('register-form').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const name = document.getElementById('name').value;
+    const password = document.getElementById('password').value;
+
+
+    fetch('/register_new_user', {
+      method: 'POST',
+
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({name:name, password:password})
+    })
+            .then(response => response.text())
+            .then(data => {
+              if (data.includes('OK')) {
+                window.location.href = '/login.html';
+              } else {
+                document.getElementById('error-message').textContent = data.toString();
+              }
+            })
+            .catch(error => {
+              document.getElementById('error-message').textContent = error;
+            });
+  });
+</script>
+</body>
+</html>
