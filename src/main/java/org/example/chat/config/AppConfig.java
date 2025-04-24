@@ -1,6 +1,5 @@
 package org.example.chat.config;
 
-import org.example.chat.domain.User;
 import org.example.chat.service.ChatService;
 import org.example.chat.service.MessageService;
 import org.example.chat.service.UserService;
@@ -10,7 +9,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.method.configuration.GlobalMethodSecurityConfiguration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.ArrayList;
 import java.util.List;

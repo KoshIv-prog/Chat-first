@@ -4,7 +4,6 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import org.example.chat.domain.Chat;
-import org.example.chat.domain.User;
 
 import java.util.ArrayList;
 import java.util.List;

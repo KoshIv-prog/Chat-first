@@ -2,7 +2,6 @@ package org.example.chat.service;
 
 import javax.transaction.Transactional;
 
-import net.bytebuddy.asm.Advice;
 import org.example.chat.domain.User;
 import org.example.chat.domain.UserStatus;
 import org.example.chat.dto.MessageDTO;
@@ -13,7 +12,6 @@ import org.example.chat.repository.ChatRepository;
 import org.example.chat.repository.MessageRepository;
 import org.example.chat.repository.UserRepository;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
