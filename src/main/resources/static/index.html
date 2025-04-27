@@ -17,7 +17,7 @@
     </div>
     <div class="chat-list">
         <h2>Чати</h2>
-        <div class="chat-list-content">
+        <div class="chat-list-content" id="chat-list-content">
             <ul id="chat-list"></ul>
         </div>
 
@@ -28,14 +28,14 @@
         <div id="overlay" class="overlay">
             <div id="add-chat-form" class="add-chat-form">
                 <div class="add-chat-header">
-                    <h3>Додавання чату</h3>
-                    <span class="close-form" onclick="toggleChatForm()">×</span>
+                    <h3 id="chat-form-tittle">Додавання чату</h3>
+                    <span class="close-form" id="close-form" onclick="toggleChatForm()">×</span>
                 </div>
                 <div class="chat-form-body">
                     <div class="add-chat-left">
-                        <div class="chat-type-switch">
-                            <label><input type="radio" name="chatType" value="personal" checked> Персональний</label>
-                            <label><input type="radio" name="chatType" value="group"> Груповий</label>
+                        <div class="chat-type-switch" id="chat-type-switch">
+                            <label><input type="radio" name="chatType" value="personal" id="radio-personal" checked> Персональний</label>
+                            <label><input type="radio" name="chatType" value="group" id="radio-group"> Груповий</label>
                         </div>
                         <input type="text" id="new-chat-name" placeholder="Назва чату" />
                     </div>
@@ -49,11 +49,10 @@
                         </div>
                     </div>
                 </div>
-                <button onclick="addChat()">Далі</button>
+                <button onclick="addChat()" id="button-add-chat">Додати чат</button>
                 <div id="error-message" style="color: red; margin-top: 5px;"></div>
             </div>
         </div>
-    </div>
     </div>
 </div>
 </body>
@@ -64,6 +63,12 @@
     var stompClient = null;
     var selectedUsers = new Set();
     var isEditing = false;
+    let currentMessagesPage = 0;
+    let currentChatPage = 0;
+    let isLoading = false;
+    let isLoadingChats = false;
+    let isAllChatMessagesDownoladed = false;
+    const pageSize = 20;
 
     function connectSocket() {
         var socket = new SockJS('/chat');
@@ -72,33 +77,50 @@
             console.log('Connected: ' + frame);
             stompClient.subscribe('/topic/messages-for-user-'+userName, function (msg) {
                 var json = JSON.parse(msg.body)
-                console.log(json)
 
-                console.log(json.chatId === currentChatId)
 
                 if (json.chatId === currentChatId) {
+                    console.log("is current chat")
                     if (json.method === "ADD_MESSAGE") {
-                        showMessage(json.author, json.text, json.date, json.id)
+                        console.log("is add message")
+                        fetch('/notify-message', {
+                            method: 'POST',
+                            headers: {"Content-Type": "application/json"},
+                            body: JSON.stringify({id:json.id})
+                        })
+                            .then(response => response.text())
+                            .then(data => {
+                                if (data.includes("OK")) {
+                                    showMessage(json.author, json.text, json.date, json.id)
+                                }
+                            })
+                            .catch(error => {
+                                console.log(error)
+                            });
                     } else if (json.method === "REMOVE_MESSAGE") {
+                        console.log("is remove message")
                         deleteMessageForUser(json.id)
                     } else if (json.method === "CHANGE_MESSAGE") {
+                        console.log("is editing message")
                         editMessageForUser(json.id, json.text)
                     } else if (json.method === "ACCESS_ERROR") {
                         alert("У вас немає доступу")
+                    }else {
+                        console.log("error")
                     }
                 }else{
+                    console.log("is not current chat")
 
                     const chatItem = document.getElementById("chat-" + json.chatId);
-                    if (!chatItem) return;
+                    if (!chatItem) clearChats();
                     const badge = chatItem.querySelector('.new-message-badge');
                     if (!badge) return;
 
                     console.log(badge.textContent.valueOf())
 
-                    badge.textContent = parseInt(badge.textContent.valueOf()) + 1;
-                    if (badge.textContent > 0) {
-                        badge.style.display = 'flex';
-                    }
+                    let count = parseInt(badge.textContent) || 0;
+                    badge.textContent = count + 1;
+                    badge.style.display = 'flex';
                 }
             });
         });
@@ -111,7 +133,7 @@
 
     async function getUser() {
         try {
-            const response = await fetch('/get_user');
+            const response = await fetch('/get-user');
             const data = await response.json();
             userName = data.name;
         } catch (error) {
@@ -119,80 +141,120 @@
         }
     }
 
-    function loadChats(){
-        const chatList = document.getElementById('chat-list');
-        chatList.innerHTML='';
 
-        fetch('/get_user_chats')
-            .then(response => response.json())
-            .then(data => {
-                data.forEach(chat => {
-                    const chatToShow =showChat(chat.id,chat.chatName,chat.unNotified);
-                    chatList.appendChild(chatToShow);
-                });
-            })
-            .catch(error => console.error('Помилка завантаження чатів:', error));
+    function setupChatInfiniteScroll() {
+        const chatListContainer = document.getElementById('chat-list-content');
+        if (!chatListContainer) {
+            console.error("Container for chats not found!");
+            return;
+        }
+
+        chatListContainer.addEventListener('scroll', () => {
+            if (
+                !isLoading &&
+                chatListContainer.scrollTop + chatListContainer.clientHeight >= chatListContainer.scrollHeight - 10
+            ) {
+                console.log('Reached bottom of chat list container.');
+                loadChats();
+
+            }
+        });
     }
 
+
+    function loadChats() {
+        if (isLoadingChats) return Promise.resolve(false);
+        isLoadingChats = true;
+
+        const chatList = document.getElementById('chat-list');
+        return fetch(`/get-user-chats?page=${currentChatPage}&size=${pageSize}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.length === 0) {
+                    console.log('No more chats to load.');
+                    return false;
+                }
+
+                data.forEach(chat => {
+                    const chatToShow = showChat(chat.id, chat.chatName, chat.unNotified);
+                    chatList.appendChild(chatToShow);
+                });
+
+                currentChatPage++;
+                return data.length > 0;
+            })
+            .catch(error => {
+                console.error('Помилка завантаження чатів:', error);
+                return false;
+            })
+            .finally(() => {
+                isLoadingChats = false;
+            });
+    }
 
     function showChat(chatId, chatName, unreadCount) {
         const chatItem = document.createElement('li');
         chatItem.classList.add('chat-item');
-        //chatItem.dataset.chatId = chatId;
         chatItem.id = "chat-"+chatId;
 
 
 
         const chatLeft = document.createElement('div');
         chatLeft.classList.add('chat-left');
-            const badge = document.createElement('span');
-            badge.classList.add('new-message-badge');
-            if (unreadCount > 0 && currentChatId !== chatItem.id.replace("chat-","")) {
-                badge.textContent = unreadCount;
-                badge.style.display = 'flex';
-            } else {
-                badge.textContent = 0;
-                badge.style.display = 'none';
-            }
+        const badge = document.createElement('span');
+        badge.classList.add('new-message-badge');
+        if (unreadCount > 0 && currentChatId.toString() !== chatItem.id.replace("chat-","")) {
+            badge.textContent = unreadCount;
+            badge.style.display = 'flex';
+        } else {
+            badge.textContent = 0;
+            badge.style.display = 'none';
+        }
 
-            const nameSpan = document.createElement('span');
-            nameSpan.classList.add('chat-name');
-            nameSpan.textContent = chatName;
+        const nameSpan = document.createElement('span');
+        nameSpan.classList.add('chat-name');
+        nameSpan.textContent = chatName;
         chatLeft.appendChild(badge);
         chatLeft.appendChild(nameSpan);
 
         const chatRight = document.createElement('div');
         chatRight.classList.add('chat-right');
-            const menuBtn = document.createElement('button');
-            menuBtn.classList.add('chat-options-btn');
-            menuBtn.innerHTML = '⋮';
-            menuBtn.onclick = function (event) {
-                toggleChatMenu(event, menuBtn);
-            };
+        const menuBtn = document.createElement('button');
+        menuBtn.classList.add('chat-options-btn');
+        menuBtn.innerHTML = '⋮';
+        menuBtn.onclick = function (event) {
+            toggleChatMenu(event, menuBtn);
+        };
 
-            const menu = document.createElement('div');
-            menu.classList.add('chat-options-menu');
+        const menu = document.createElement('div');
+        menu.classList.add('chat-options-menu');
 
-            const infoItem = document.createElement('div');
-            infoItem.textContent = 'Інформація';
-            infoItem.onclick = function () {
-                showChatInfo(chatId);
-            };
+        const infoItem = document.createElement('div');
+        infoItem.textContent = 'Інформація';
+        infoItem.onclick = function () {
+            showChatInfo(chatId);
+        };
 
-            const addItem = document.createElement('div');
-            addItem.textContent = 'Додати користувача';
-            addItem.onclick = function () {
-                openAddUserToChat(chatId);
-            };
-            menu.appendChild(infoItem);
-            menu.appendChild(addItem);
+        const editItem = document.createElement('div');
+        editItem.textContent = 'Редагувати';
+        editItem.onclick = function () {
+            editChat(chatId);
+        };
+
+        const deleteItem = document.createElement('div');
+        deleteItem.textContent = 'Видалити';
+        deleteItem.onclick = function () {
+            deleteChat(chatId);
+        };
+        menu.appendChild(infoItem);
+        menu.appendChild(editItem);
+        menu.appendChild(deleteItem);
         chatRight.appendChild(menuBtn);
         chatRight.appendChild(menu);
 
-        if (chatItem.id.replace("chat-","") === currentChatId){
+        if (currentChatId &&chatItem.id.replace("chat-","") === currentChatId.toString()){
             chatItem.style.backgroundColor = '#d4edda'
         }
-
 
         chatItem.onclick = function () {
             getChatMessages(chatId, currentChatId);
@@ -201,13 +263,168 @@
             if (badge.textContent > 0) {
                 badge.textContent = 0;
                 badge.style.display = 'none';
-            }//TODO badge.textContent
-            //TODO if in opened window
+            }
         };
 
         chatItem.appendChild(chatLeft);
         chatItem.appendChild(chatRight);
         return chatItem;
+    }
+
+    function deleteChat(chatId){
+        fetch('/delete-chat', {
+            method: 'POST',
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({id:chatId})
+        })
+            .then(response => response.text())
+            .then(data => {
+                if (data.includes("OK")) {
+                    clearChats()
+                    loadChats()
+                }
+            })
+            .catch(error => {
+                console.log(error)
+            });
+    }
+
+    function editChat(chatId){
+
+
+        fetch('/get-chat-info?chatId=' + chatId)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch chat info');
+                }
+                return response.json();
+            })
+            .then(data => {
+                toggleChatForm(true);
+
+                if (data.isGroupChat) {
+                    selectedUsers.clear();
+                    data.users.forEach(user => {
+                        selectedUsers.add(user);
+                    });
+
+
+                    loadUserList();
+
+
+                    const radio = document.getElementById("chat-type-switch");
+                    const exit = document.getElementById("close-form");
+                    if (radio && exit) {
+                        radio.style.display = 'none';
+                        exit.style.display = 'none';
+                    }
+                    const chatNameInput = document.getElementById("new-chat-name");
+                    if (chatNameInput) {
+                        chatNameInput.value = data.chatName;
+                    }
+
+                    document.getElementById("chat-form-tittle").textContent = "Редагування чату";
+                    document.getElementById("button-add-chat").textContent = "Редагувати чат";
+                    document.getElementById("button-add-chat").onclick = () => confirmEditingChat(chatId);
+
+
+
+                } else {
+                    alert("Редагування персональних чатів заборонено");
+                }
+            })
+            .catch(error => {
+                console.error('Помилка завантаження інформації про чат:', error);
+                alert("Виникла помилка під час завантаження інформації про чат. Спробуйте ще раз.");
+            });
+    }
+
+
+    function confirmEditingChat(chatId) {
+
+        const chatNameInput = document.getElementById("new-chat-name");
+        const updatedChatName = chatNameInput ? chatNameInput.value : null;
+
+        if (!updatedChatName || updatedChatName.trim() === "") {
+            alert("Назва чату не може бути порожньою.");
+            return;
+        }
+
+        if (chatNameInput.value.length > 25){
+            alert("Назва чату повинна бути менша 25 символів")
+            return;
+        }
+
+        const updatedUsers = Array.from(selectedUsers);
+
+        fetch('/update-chat', {
+            method: 'POST',
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                id: chatId,
+                chatName: updatedChatName,
+                users: updatedUsers
+            })
+        })
+            .then(response => response.text())
+            .then(data => {
+                if (data.includes("OK")) {
+                    alert("Чат успішно змінено.");
+                    clearChats();
+                    loadChats();
+                    toggleChatForm();
+
+
+                    const chatNameInput = document.getElementById("new-chat-name");
+                    const radio = document.getElementById("chat-type-switch");
+                    const exit = document.getElementById("close-form");
+
+                    if (chatNameInput) {
+                        chatNameInput.value = ''; // Clear chat name input
+                    }
+
+                    if (radio) {
+                        radio.style.display = 'block'; // Reset display style for radio button
+                    }
+
+                    if (exit) {
+                        exit.style.display = 'block';
+                    }
+
+                    document.getElementById("chat-form-tittle").textContent = "Додавання чату";
+                    document.getElementById("button-add-chat").textContent = "Додати чат";
+                    document.getElementById("button-add-chat").onclick = () => addChat(chatId);
+
+                    clearChats()
+
+                } else {
+                    alert("Не вдалося змінити чат. Спробуйте ще раз.");
+                }
+            })
+            .catch(error => {
+                console.error("Помилка під час редагування чату:", error);
+                alert("Виникла помилка під час редагування чату. Спробуйте ще раз.");
+            });
+
+    }
+
+    function clearChats(){
+        document.getElementById("chat-list").innerHTML = ``
+        currentChatPage = 0
+        isAllChatMessagesDownoladed = false
+    }
+
+
+
+    function showChatInfo(chatId){
+        fetch('/get-chat-info?chatId=' + chatId)
+            .then(response => response.json())
+            .then(data => {
+                alert("admin:"+data.userAdmin  +"\n"+ "users:"+data.users)
+            })
+            .catch(error => {
+                console.error('Помилка завантаження повідомлень:', error)}
+            );
     }
 
     function toggleChatMenu(event, button) {
@@ -217,7 +434,11 @@
         chatItem.classList.toggle('show-menu');
     }
 
+
+
+
     function getChatMessages(chatId, fromChatId) {
+        console.log("getting chat messages "+ chatId+" ")
         if (fromChatId != null && document.getElementById("chat-" + fromChatId)) {
             document.getElementById("chat-" + fromChatId).style.backgroundColor = '#F4F4F4FF';
         }
@@ -227,26 +448,73 @@
 
         localStorage.setItem('lastChat', chatId);
         currentChatId = chatId;
-        currentMessageList = document.getElementById('messages');
-        currentMessageList.innerHTML='';
 
-        fetch('/get_chat_messages?chatId=' + chatId)
-            .then(response => response.json())
-            .then(data => {
-                data.forEach(msg => {
-                    showMessage(msg.author,msg.text,msg.date,msg.id)
-                });
-                currentMessageList.scrollTop = currentMessageList.scrollHeight;
-            })
-            .catch(error => {
-                console.error('Помилка завантаження повідомлень:', error)}
-            );
+        currentMessageList = document.getElementById('messages');
+        currentMessageList.innerHTML = '';
+        currentMessagesPage = 0;
+        isAllChatMessagesDownoladed = false;
+
+        loadChatMessages();
 
     }
 
 
+    function loadChatMessages() {
+        if(isLoading){
+            console.log("is loading messages")
+            return;
+        }
+        if(isAllChatMessagesDownoladed){
+            console.log("All messages already downloaded")
+            return;
+        }
+        isLoading = true;
+        if (currentChatId == null ) {
+            console.error('No chat selected!');
+            return;
+        }
 
-    function showMessage(author,text,date ,id  ){
+
+        const messagesContainer = document.getElementById("messages");
+        const oldScrollHeight = messagesContainer.scrollHeight;
+
+        fetch(`/get-chat-messages?chatId=${currentChatId}&page=${currentMessagesPage}&size=${pageSize}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.length === 0 && currentMessagesPage > 0) {
+                    console.log('No more messages to load.');
+                    isAllChatMessagesDownoladed = true;
+                    return;
+                }
+
+                data.reverse().forEach(msg => {
+                    showMessage(msg.author, msg.text, msg.date, msg.id,true);
+                });
+
+                const newScrollHeight = messagesContainer.scrollHeight;
+                messagesContainer.scrollTop += (newScrollHeight - oldScrollHeight);
+
+                currentMessagesPage++;
+            })
+            .catch(error => {
+                console.error('Помилка завантаження повідомлень:', error);
+            }).finally(() => {isLoading = false;});
+    }
+
+
+    document.getElementById("messages").addEventListener('scroll', function () {
+        if (this.scrollTop <= 10) {
+            loadChatMessages(); // Load previous messages on scroll to top
+        }
+    });
+
+
+    function showMessage(author,text,date ,id ,atTop = false ){
+        // Check if a message with the same id already exists
+        if (document.getElementById("message-"+id)) {
+            return; // Don't show duplicate messages
+        }
+
         const newMessage = document.createElement('div');
         const isMyMessage = author === userName ? 'user' : 'other'
         newMessage.classList.add('message', isMyMessage, `message-${id}`);
@@ -267,14 +535,17 @@
 
                 <span class="text">${text.replace(/\n/g, '<br>')}</span>
                 <span class="timestamp">${new Date(date).toLocaleString('uk-UA', {
-                        year: 'numeric', month: '2-digit', day: '2-digit',
-                        hour: '2-digit', minute: '2-digit'
-                    })}</span>
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit'
+        })}</span>
 
 `;
-
-        currentMessageList.appendChild(newMessage);
-        currentMessageList.scrollTop = currentMessageList.scrollHeight;
+        if (!atTop) {
+            currentMessageList.appendChild(newMessage);
+            currentMessageList.scrollTop = currentMessageList.scrollHeight;
+        }else {
+            document.getElementById("messages").prepend(newMessage);
+        }
     }
 
     function hideMessageForUser(id){
@@ -297,22 +568,22 @@
 
 
     function deleteMessageById(messageId) {
-        stompClient.send("/app/sendMessage",{},JSON.stringify({id:messageId,method:"REMOVE_MESSAGE"}))
+        stompClient.send("/app/sendMessage",{},JSON.stringify({id:messageId,method:"REMOVE_MESSAGE",chatId:currentChatId}))
     }
 
     function deleteMessageForUser(messageId) {
         console.log("deleting message"+messageId)
-            const messageElement = document.getElementById(`message-${messageId}`);
-            if (messageElement) {
-                messageElement.remove();
-            } else {
-                console.warn(`Повідомлення з ID ${messageId} не знайдено`);
-            }
+        const messageElement = document.getElementById(`message-${messageId}`);
+        if (messageElement) {
+            messageElement.remove();
+        } else {
+            console.warn(`Повідомлення з ID ${messageId} не знайдено`);
+        }
     }
 
     function startEditMessage(id, oldText) {
         const textInput = document.getElementById('text-to-send');
-        textInput.value = oldText.replace(/<br>/g, '\n'); // Повертаємо перенос рядків
+        textInput.value = oldText.replace(/<br>/g, '\n');
 
         isEditing = true;
         textInput.focus();
@@ -320,11 +591,28 @@
     }
 
     function editMessageForUser(messageId, newText) {
-        const messageElement = document.getElementById(`message-${messageId}`);
+        console.log("editing")
+
+        console.log(`Editing message with ID: ${messageId}, new text: ${newText}`);
+
+
+        let messageElement = document.getElementById("message-"+messageId);
         if (messageElement) {
             const textElement = messageElement.querySelector('.text');
             if (textElement) {
                 textElement.innerHTML = newText.replace(/\n/g, '<br>');
+                console.log(`Message updated successfully`);
+            } else {
+                console.warn(`Текстовий елемент не знайдено в повідомленні з ID ${messageId}`);
+                // Try to find text element by different means
+                const allSpans = messageElement.getElementsByTagName('span');
+                for (let i = 0; i < allSpans.length; i++) {
+                    if (allSpans[i].className === 'text') {
+                        allSpans[i].innerHTML = newText.replace(/\n/g, '<br>');
+                        console.log(`Message updated using alternative method`);
+                        break;
+                    }
+                }
             }
         } else {
             console.warn(`Повідомлення з ID ${messageId} не знайдено`);
@@ -367,6 +655,7 @@
             stompClient.send("/app/sendMessage", {}, JSON.stringify({
                 id: textInput.dataset.editId,
                 text: text,
+                chatId:currentChatId,
                 method: "CHANGE_MESSAGE"
             }));
             isEditing = false;
@@ -389,19 +678,40 @@
     });
 
 
-    function toggleChatForm() {
+    function toggleChatForm(toLoad) {
         const form = document.getElementById('add-chat-form');
         const overlay = document.getElementById('overlay');
         const userSelection = document.getElementById('user-selection');
+        const chatName = document.getElementById('new-chat-name');
+
 
         const isVisible = form.style.display === 'block';
+        if (isVisible) {
+            selectedUsers.clear();
+            chatName.value = "";
 
-        if (userSelection.style.display ===  "none" ){
-            loadUserList();
+            const checked = document.querySelector('input[name="chatType"]:checked');
+            if (checked && checked.value === "group") {
+                document.getElementById('radio-personal').checked = true;
+                document.getElementById('radio-group').checked = false;
+            }
         }
-        userSelection.style.display = isVisible ? "none" : 'block'
-        form.style.display = isVisible ? 'none' : 'block';
-        overlay.style.display = isVisible ? 'none' : 'block';
+
+        if (userSelection && userSelection.style.display === "none") {
+            const container = document.getElementById('user-list-container');
+            container.innerHTML = '';
+            console.log(selectedUsers)
+            if (toLoad === null) {
+                loadUserList();
+            }
+
+
+        }
+        if (userSelection) {
+            userSelection.style.display = isVisible ? "none" : "block";
+        }
+        form.style.display = isVisible ? "none" : "block";
+        overlay.style.display = isVisible ? "none" : "block";
     }
 
     function addChat() {
@@ -409,6 +719,10 @@
         const chatName = document.getElementById('new-chat-name').value;
         if (chatName.trim() === "") {
             alert("Введіть назву чату.");
+            return;
+        }else if (chatNameInput.value.length > 25){
+
+            alert("Назва чату повинна бути менша 25 символів")
             return;
         }
         let checked = document.querySelector('input[name="chatType"]:checked').value;
@@ -422,21 +736,39 @@
         if (isGroup && users.length < 2) {
             alert("Додайте хоча б одного учасника для групового чату.");
             return;
-        }else if(!isGroup && users.length != 2){
+        }else if(!isGroup && users.length !== 2){
             alert("Можна додати лише 1 учасника")
             return;
         }
 
 
-        confirmAddingChat(isGroup, users, chatName)
+        fetch('/create-new-chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({isGroupChat:isGroup, userAdmin:userName, chatName:chatName, users:users})
+        })
+            .then(response => response.text())
+            .then(data => {
+                if (data.includes('OK')) {
+                    clearChats();
+                    loadChats();
+                } else {
+                    document.getElementById('error-message').textContent = data.toString();
+                }
+            })
+            .catch(error => {
+                document.getElementById('error-message').textContent = error;
+            });
+
+        toggleChatForm();
     }
-    function loadUserList(filter = '') {
-        const page = 0;
+
+    function loadUserList(filter = '',page = 0) {
         fetch(`/search-users?pattern=${encodeURIComponent(filter)}&page=${page}`)
             .then(response => response.json())
             .then(users => {
                 const container = document.getElementById('user-list-container');
-                container.innerHTML = '';
+
 
                 users.forEach(user => {
                     if (user.name !== userName) {
@@ -469,8 +801,10 @@
                         addBtn.style.fontSize = '16px';
                         addBtn.style.cursor = 'pointer';
 
-                        addBtn.onclick = () => toggleUserSelection(user.name, div, addBtn);
+                        addBtn.onclick = () => {toggleUserSelection(user.name, div, addBtn)};
 
+                        console.log(selectedUsers)
+                        console.log(user.name+"___"+selectedUsers.has(user.name))
                         if (selectedUsers.has(user.name)){
                             div.style.backgroundColor = '#d4edda';
                             addBtn.textContent = "×"
@@ -499,41 +833,20 @@
 
     function applyUserFilter() {
         const pattern = document.getElementById('user-filter-pattern').value;
+        const container = document.getElementById('user-list-container');
+        container.innerHTML = '';
         loadUserList(pattern);
-    }
-
-
-
-    function confirmAddingChat(isGroupChat, users, chatName){
-        fetch('/create-new-chat', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({isGroupChat:isGroupChat, userAdmin:userName, chatName:chatName, users:users})
-        })
-            .then(response => response.text())
-            .then(data => {
-                if (data.includes('OK')) {
-                    loadChats();
-                } else {
-                    document.getElementById('error-message').textContent = data.toString();
-                }
-            })
-            .catch(error => {
-                document.getElementById('error-message').textContent = error;
-            });
-
-        toggleChatForm();
     }
 
     window.onload = async function () {
         await getUser();
-        loadUserList();
-        loadChats();
+        setupChatInfiniteScroll();
+        await loadChats();
         connectSocket();
-
+        loadUserList();
         const lastChat = localStorage.getItem('lastChat');
         if (lastChat) {
-            getChatMessages(lastChat,null);
+            getChatMessages(parseInt(lastChat),null);
         }
     };
 

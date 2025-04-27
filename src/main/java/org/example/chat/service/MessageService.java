@@ -11,6 +11,7 @@ import org.example.chat.dto.response.Response;
 import org.example.chat.repository.ChatRepository;
 import org.example.chat.repository.MessageRepository;
 import org.example.chat.repository.UserRepository;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -34,16 +35,20 @@ public class MessageService {
     }
 
     @Transactional
-    public List<Message> getMessages(Long chatId, String username,int page) {
+    public Page<Message> getMessages(Long chatId, String username, int page, int size) {
         if(!userRepository.existsUserByName(username)){
-            return new ArrayList<>();
+            return Page.empty();
         }
 
-        System.out.println(countNewMessages(chatId,username));
+        int correctPage = (int) Math.ceil( messageRepository.countMessagesByChat_Id(chatId)/size)- page;
+
+        if (correctPage<0){
+            return Page.empty();
+        }
 
         Long userId = userRepository.findUserByName(username).get().getId();
         notifyMessages(chatId,userId);
-        return messageRepository.findVisibleMessagesByChatIdAndUserId(chatId,userId, PageRequest.of(page, 25, Sort.Direction.DESC, "id"));
+        return messageRepository.findVisibleMessagesByChatIdAndUserId(chatId,userId, PageRequest.of(correctPage, size, Sort.Direction.DESC, "id"));
     }
 
 
@@ -56,9 +61,7 @@ public class MessageService {
         }
 
         User user = userRepository.findUserByName(author).get();
-        ArrayList<Long> haveNotifiedIds = new ArrayList<>();
-        haveNotifiedIds.add(user.getId());
-        Message message = new Message(null ,text, user,new Date(),chatRepository.findChatById(chatID), haveNotifiedIds);
+        Message message = new Message(null ,text, user,new Date(),chatRepository.findChatById(chatID), new ArrayList<>());
 
         Long msgId = messageRepository.save(message).getId();
         MessageDTO newMsg = MessageDTO.toDTO(message);
@@ -132,12 +135,35 @@ public class MessageService {
     public void notifyMessages(Long chatId, Long userId) {
         List<Message> notNotifiedMessages = messageRepository.findUnreadMessages(chatId,userId);
         notNotifiedMessages.forEach(message -> {
-            if (!message.getHaveNotifiedIds().contains(userId)) {
+            //if (!message.getHaveNotifiedIds().contains(userId)) {
                 message.getHaveNotifiedIds().add(userId);
-            }
+            //}
         }
         );
         messageRepository.saveAll(notNotifiedMessages);
+    }
+
+    @Transactional
+    public Response notifyMessage(Long messageId, String username) {
+        Optional<User> user = userRepository.findUserByName(username);
+        if(user.isEmpty()) {
+            System.out.println("unnotified message  user is empty");
+            return Response.ERROR ;
+        }
+        Optional<Message> message = messageRepository.findMessageById(messageId);
+        if(message.isEmpty()) {
+            System.out.println("unnotified message  message is empty");
+            return Response.ERROR ;
+        }
+        Message gotMessage = message.get();
+        if(gotMessage.getHaveNotifiedIds().contains(user.get().getId())){
+            System.out.println("unnotified message   is already notified");
+            return Response.ERROR;
+        }
+        System.out.println("notified message");
+        gotMessage.getHaveNotifiedIds().add(user.get().getId());
+        messageRepository.save(gotMessage);
+        return Response.OK;
     }
 
 }

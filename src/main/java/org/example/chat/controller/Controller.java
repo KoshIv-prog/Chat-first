@@ -48,23 +48,25 @@ public class Controller {
         this.messagingTemplate = messagingTemplate;
     }
 
-    @GetMapping("/get_user")
+    @GetMapping("/get-user")
     public ResponseEntity<UserDTO> getUser() {
         return ResponseEntity.ok(UserDTO.toDTO(userService.findUserByUsername(getCurrentUser().getUsername())));
     }
 
-    @GetMapping("/get_user_chats")
-    public ResponseEntity<List<ChatDTO>> getUserChats() {
+    @GetMapping("/get-user-chats")
+    public ResponseEntity<List<ChatDTO>> getUserChats(@RequestParam(required = false, defaultValue = "0")int page,
+                                                      @RequestParam(required = false, defaultValue = "30")int pageSize) {
         User user = userService.findUserByUsername(getCurrentUser().getUsername());
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .header("Custom-Header", "MyValue")
-                .body(chatService.getChatsForUser(user));
+                .body(chatService.getChatsForUser(user,page,pageSize));
     }
 
-    @GetMapping("/get_chat_messages")
+    @GetMapping("/get-chat-messages")
     public ResponseEntity<List<MessageDTO>> getChatMessages(@RequestParam(required = true) Long chatId,
-                                                            @RequestParam(required = false,defaultValue = "0") int page) {
+                                                            @RequestParam(required = false,defaultValue = "0") int page,
+                                                            @RequestParam(required = false,defaultValue = "30") int pageSize) {
         List<MessageDTO> messages = new ArrayList<>();
 
         if (!chatService.existsChat(chatId)){
@@ -74,7 +76,7 @@ public class Controller {
         }
 
         if(chatService.getChatById(chatId).getUsers().contains(userService.findUserByUsername(getCurrentUser().getUsername()))) {
-            messageService.getMessages(chatId,getCurrentUser().getUsername(),page)
+            messageService.getMessages(chatId,getCurrentUser().getUsername(),page,pageSize)
                     .forEach(message -> {
                         messages.add(MessageDTO.toDTO(message));
                     });
@@ -85,7 +87,7 @@ public class Controller {
                 .body(messages);
     }
 
-    @PostMapping("/register_new_user")
+    @PostMapping("/register-new-user")
     public ResponseEntity<Response> registerNewUser(@RequestBody UserDTO userDTO) {
         System.out.println(userDTO.toString());
         return  ResponseEntity.status(HttpStatus.CREATED)
@@ -93,7 +95,7 @@ public class Controller {
                 .body(userService.addUser(userDTO.getName(), passwordEncoder.encode(userDTO.getPassword())));
     }
 
-    @MessageMapping("/sendMessage")
+    @MessageMapping("/send-message")
     public void sendMessage(@Payload MessageDTO messageDTO, Principal principal) {
         if (messageDTO.getMethod() == null){
         }else if (messageDTO.getMethod().equals(MessageMethod.ADD_MESSAGE.toString())) {
@@ -171,6 +173,47 @@ public class Controller {
                 );
     }
 
+    @PostMapping("/notify-message")
+    public ResponseEntity<Response> notifyMessage(@RequestBody MessageDTO messageDTO) {
+        System.out.println(messageDTO.toString()+" to notify");
+
+        Response response = messageService.notifyMessage(messageDTO.getId(),getCurrentUser().getUsername());
+
+        return ResponseEntity.status(HttpStatus.OK)
+                .header("Custom-Header", "MyValue")
+                .body(response);
+    }
+
+    @GetMapping("/get-chat-info")
+    public ResponseEntity<ChatDTO> getChatInfo(@RequestParam Long chatId) {
+
+        return ResponseEntity.status(HttpStatus.OK)
+                .header("Custom-Header", "MyValue")
+                .body(
+                        ChatDTO.toDTO(
+                                chatService.getChatById(chatId)
+                        )
+                );
+    }
+
+    @PostMapping("/delete-chat")
+    public ResponseEntity<Response> deleteChatMethod(@RequestBody ChatDTO chatDTO) {
+        System.out.println(chatDTO.getId()+" to delete");
+        Response response = chatService.deleteChat(chatDTO.getId(),getCurrentUser().getUsername());
+
+        return ResponseEntity.status(HttpStatus.OK)
+                .header("Custom-Header", "MyValue")
+                .body(response);
+    }
+
+    @PostMapping("/update-chat")
+    public ResponseEntity<Response> updateChatMethod(@RequestBody ChatDTO chatDTO) {
+        Response response = chatService.updateChat(chatDTO.getId(),chatDTO.getChatName(),chatDTO.getUsers(),getCurrentUser().getUsername());
+
+        return ResponseEntity.status(HttpStatus.OK)
+                .header("Custom-Header", "MyValue")
+                .body(response);
+    }
 
 
     private org.springframework.security.core.userdetails.User getCurrentUser() {

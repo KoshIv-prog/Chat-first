@@ -32,6 +32,12 @@ public class AppConfig extends GlobalMethodSecurityConfiguration {
                 messageService.addMessage(3L,"hello","qwe");
                 messageService.addMessage(3L,"hello","qw");
                 messageService.addMessage(3L,"hello","qw");
+                for (int i = 0; i < 100; i++){
+                    messageService.addMessage(3L,"hello_"+i,"qwe");
+                }
+                for (int i = 0; i < 100; i++){
+                    chatService.addChat("chat_"+i,true,users,"qwe");
+                }
                 messageService.hideMessageForUserById(6L,"qwe");
             }
         };

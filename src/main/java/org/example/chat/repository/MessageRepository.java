@@ -1,16 +1,20 @@
 package org.example.chat.repository;
 
+import org.example.chat.domain.Chat;
 import org.example.chat.domain.Message;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.messaging.handler.annotation.Payload;
 
 import java.util.List;
 import java.util.Optional;
 
 public interface MessageRepository extends JpaRepository<Message, Long> {
+
 
     @EntityGraph(attributePaths = {"author", "chat"})
     @Query("""
@@ -22,7 +26,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     )
     ORDER BY m.date ASC
 """)
-    List<Message> findVisibleMessagesByChatIdAndUserId(@Param("chatId") Long chatId, @Param("userId") Long userId,PageRequest pageable);
+    Page<Message> findVisibleMessagesByChatIdAndUserId(@Param("chatId") Long chatId, @Param("userId") Long userId, PageRequest pageable);
 
     @EntityGraph(attributePaths = {"author", "chat"})
     Optional<Message> findMessageById(Long id);
@@ -40,10 +44,17 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     @Query("""
             SELECT m FROM Message m 
             WHERE m.chat.id = :chatId 
-            AND m.author.id <> :userId 
             AND :userId NOT IN elements(m.haveNotifiedIds)
                     """)
     List<Message> findUnreadMessages(@Param("chatId") Long chatId, @Param("userId") Long userId);
+
+    void deleteAllByChat(Chat chat);
+
+    @Query("""
+            SELECT COUNT(m) FROM Message m 
+            WHERE m.chat.id = :chatId 
+            """)
+    long countMessagesByChat_Id(@Param("chatId") Long chatId);
 }
 
 

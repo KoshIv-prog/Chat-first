@@ -35,9 +35,13 @@ public class UserService {
     @Transactional()
     @ReadOnlyProperty()
     public List<UserDTO> findByPattern(String pattern, Pageable pageable) {
-        List<UserDTO> users = new ArrayList<>();
-        userRepository.findByPattern(pattern, pageable).forEach(user -> users.add(UserDTO.toDTO(user)));
-        return users;
+        List<UserDTO> usersDTO = new ArrayList<>();
+        List<User> users = userRepository.findByPattern(pattern, pageable);
+        for (int i = users.size()-1; 0 <= i; i--) {
+            usersDTO.add(UserDTO.toDTO(users.get(i)));
+        }
+
+        return usersDTO;
     }
 
     public User findUserByUsername(String username) {
