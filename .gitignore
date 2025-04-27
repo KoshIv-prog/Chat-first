@@ -31,9 +31,6 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-# Application config
-Chat\src\main\resources\application.properties
-application.properties
 
 
 
