@@ -120,7 +120,6 @@ public class MessageService {
     }
 
 
-    //TODO delete
     @Transactional
     public Long countNewMessages(Long chatId, String username) {
         Optional<User> user = userRepository.findUserByName(username);
@@ -147,20 +146,20 @@ public class MessageService {
     public Response notifyMessage(Long messageId, String username) {
         Optional<User> user = userRepository.findUserByName(username);
         if(user.isEmpty()) {
-            System.out.println("unnotified message  user is empty");
+            System.out.println("Log:  unnotified message  user is empty");
             return Response.ERROR ;
         }
         Optional<Message> message = messageRepository.findMessageById(messageId);
         if(message.isEmpty()) {
-            System.out.println("unnotified message  message is empty");
+            System.out.println("Log:  unnotified message  message is empty");
             return Response.ERROR ;
         }
         Message gotMessage = message.get();
         if(gotMessage.getHaveNotifiedIds().contains(user.get().getId())){
-            System.out.println("unnotified message   is already notified");
+            System.out.println("Log:  unnotified message   is already notified");
             return Response.ERROR;
         }
-        System.out.println("notified message");
+        System.out.println("Log:  notified message");
         gotMessage.getHaveNotifiedIds().add(user.get().getId());
         messageRepository.save(gotMessage);
         return Response.OK;
