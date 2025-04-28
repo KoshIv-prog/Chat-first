@@ -574,7 +574,7 @@
 
 
     function deleteMessageById(messageId) {
-        stompClient.send("/app/sendMessage",{},JSON.stringify({id:messageId,method:"REMOVE_MESSAGE",chatId:currentChatId}))
+        stompClient.send("/app/send-message",{},JSON.stringify({id:messageId,method:"REMOVE_MESSAGE",chatId:currentChatId}))
     }
 
     function deleteMessageForUser(messageId) {
@@ -658,7 +658,7 @@
         }
 
         if (isEditing && textInput.dataset.editId) {
-            stompClient.send("/app/sendMessage", {}, JSON.stringify({
+            stompClient.send("/app/send-message", {}, JSON.stringify({
                 id: textInput.dataset.editId,
                 text: text,
                 chatId:currentChatId,
@@ -667,7 +667,7 @@
             isEditing = false;
             delete textInput.dataset.editId;
         } else {
-            stompClient.send("/app/sendMessage", {}, JSON.stringify({
+            stompClient.send("/app/send-message", {}, JSON.stringify({
                 chatId: currentChatId,
                 text: text,
                 method: "ADD_MESSAGE"
