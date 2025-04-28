@@ -24,10 +24,8 @@
     const name = document.getElementById('name').value;
     const password = document.getElementById('password').value;
 
-
     fetch('/register-new-user', {
       method: 'POST',
-
       headers: {
         'Content-Type': 'application/json'
       },
