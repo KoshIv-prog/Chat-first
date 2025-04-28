@@ -290,16 +290,22 @@
     }
 
     function editChat(chatId){
-
+        let isFailed =false
 
         fetch('/get-chat-info?chatId=' + chatId)
             .then(response => {
+                console.log(response)
                 if (!response.ok) {
+                    isFailed = true;
                     throw new Error('Failed to fetch chat info');
                 }
                 return response.json();
             })
             .then(data => {
+                console.log(data)
+                if (isFailed) {
+                    return;
+                }
                 toggleChatForm(true);
 
                 if (data.isGroupChat) {
@@ -715,7 +721,6 @@
     }
 
     function addChat() {
-
         const chatName = document.getElementById('new-chat-name').value;
         if (chatName.trim() === "") {
             alert("Введіть назву чату.");
