@@ -100,6 +100,7 @@ public class Controller {
 
     @MessageMapping("/send-message")
     public void sendMessage(@Payload MessageDTO messageDTO, Principal principal) {
+        System.out.println("enter -"+messageDTO.toString()+", to send message");
         if (messageDTO.getMethod() == null){
         }else if (messageDTO.getMethod().equals(MessageMethod.ADD_MESSAGE.toString())) {
             System.out.println("add message");
