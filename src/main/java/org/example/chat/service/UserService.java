@@ -24,7 +24,9 @@ public class UserService {
 
     @Transactional
     public Response addUser(String username, String password) {
+        System.out.println("registering user");
         if (userRepository.existsUserByName(username)) {
+            System.out.println("user already exists");
             return Response.REGISTER_ERROR;
         }
 

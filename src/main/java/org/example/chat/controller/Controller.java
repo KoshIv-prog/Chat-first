@@ -59,7 +59,7 @@ public class Controller {
         User user = userService.findUserByUsername(getCurrentUser().getUsername());
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .header("Custom-Header", "MyValue")
+                .header("Accept", "accept")
                 .body(chatService.getChatsForUser(user,page,pageSize));
     }
 
@@ -71,7 +71,7 @@ public class Controller {
 
         if (!chatService.existsChat(chatId)){
             return ResponseEntity.status(HttpStatus.OK)
-                    .header("Custom-Header","MyValue")
+                    .header("Accept","accept")
                     .body(new ArrayList<>());
         }
 
@@ -83,17 +83,18 @@ public class Controller {
         }
 
         return ResponseEntity.status(HttpStatus.OK)
-                .header("Custom-Header","MyValue")
+                .header("Accept","accept")
                 .body(messages);
     }
 
     @PostMapping("/register-new-user")
     public ResponseEntity<Response> registerNewUser(@RequestBody UserDTO userDTO) {
-        System.out.println(userDTO.toString());
+        Response response = userService.addUser(userDTO.getName(), passwordEncoder.encode(userDTO.getPassword()));
+        System.out.println("enter -"+userDTO.toString()+", response - "+response.toString()+ " to register new user");
         return  ResponseEntity.status(HttpStatus.CREATED)
-                .header("Custom-Header", "MyValue")
+                .header("Accept-Post", "accept")
                 .body(
-                        userService.addUser(userDTO.getName(), passwordEncoder.encode(userDTO.getPassword()))
+                        response
                 );
     }
 
@@ -140,7 +141,7 @@ public class Controller {
     public ResponseEntity<List<UserDTO>> searchUsers(@RequestParam String pattern,
                                                      @RequestParam(required = false,defaultValue = "0") Integer page) {
         return ResponseEntity.status(HttpStatus.OK)
-                .header("Custom-Header", "MyValue")
+                .header("Accept", "accept")
                 .body(
                         userService.findByPattern(pattern, PageRequest.of(page,SIZE,Sort.Direction.DESC,"id"))
                 );
@@ -150,7 +151,7 @@ public class Controller {
     public ResponseEntity<Response> createNewChat(@RequestBody ChatDTO chatDTO) {
         System.out.println(chatDTO.toString());
         return ResponseEntity.status(HttpStatus.OK)
-                .header("Custom-Header", "MyValue")
+                .header("Accept-Post", "accept")
                 .body(
                         chatService.addChat(
                             chatDTO.getChatName(),
@@ -165,7 +166,7 @@ public class Controller {
     public ResponseEntity<Response> hideMessageForUser(@RequestBody MessageDTO messageDTO) {
         System.out.println(messageDTO.toString());
         return ResponseEntity.status(HttpStatus.OK)
-                .header("Custom-Header", "MyValue")
+                .header("Accept-Post", "accept")
                 .body(
                         messageService.hideMessageForUserById(
                                 messageDTO.getId(),
@@ -182,7 +183,7 @@ public class Controller {
         Response response = messageService.notifyMessage(messageDTO.getId(),getCurrentUser().getUsername());
 
         return ResponseEntity.status(HttpStatus.OK)
-                .header("Custom-Header", "MyValue")
+                .header("Accept-Post", "accept")
                 .body(response);
     }
 
@@ -190,7 +191,7 @@ public class Controller {
     public ResponseEntity<ChatDTO> getChatInfo(@RequestParam Long chatId) {
 
         return ResponseEntity.status(HttpStatus.OK)
-                .header("Custom-Header", "MyValue")
+                .header("Accept", "accept")
                 .body(
                         ChatDTO.toDTO(
                                 chatService.getChatById(chatId)
@@ -204,7 +205,7 @@ public class Controller {
         Response response = chatService.deleteChat(chatDTO.getId(),getCurrentUser().getUsername());
 
         return ResponseEntity.status(HttpStatus.OK)
-                .header("Custom-Header", "MyValue")
+                .header("Accept-Post", "accept")
                 .body(response);
     }
 
@@ -213,7 +214,7 @@ public class Controller {
         Response response = chatService.updateChat(chatDTO.getId(),chatDTO.getChatName(),chatDTO.getUsers(),getCurrentUser().getUsername());
 
         return ResponseEntity.status(HttpStatus.OK)
-                .header("Custom-Header", "MyValue")
+                .header("Accept-Post", "accept")
                 .body(response);
     }
 
