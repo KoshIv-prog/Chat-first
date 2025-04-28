@@ -25,17 +25,17 @@ public class SecurityConfig  {
                 .antMatchers( "/css/**", "/logout", "/register_new_user", "/register.html").permitAll()
                 .anyRequest().authenticated()
                 .and()
-                .formLogin()
-                .loginPage("/login.html")
-                .loginProcessingUrl("/j_spring_security_check")
-                .failureUrl("/login.html?error=true")
-                .usernameParameter("j_login")
-                .passwordParameter("j_password")
-                .permitAll()
+                    .formLogin()
+                    .loginPage("/login.html")
+                    .loginProcessingUrl("/j_spring_security_check")
+                    .failureUrl("/login.html?error=true")
+                    .usernameParameter("j_login")
+                    .passwordParameter("j_password")
+                    .permitAll()
                 .and()
-                .logout()
-                .logoutUrl("/logout")
-                .logoutSuccessUrl("/login.html");
+                    .logout()
+                    .logoutUrl("/logout")
+                    .logoutSuccessUrl("/login.html");
 
         return http.build();
     }

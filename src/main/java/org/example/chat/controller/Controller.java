@@ -92,7 +92,9 @@ public class Controller {
         System.out.println(userDTO.toString());
         return  ResponseEntity.status(HttpStatus.CREATED)
                 .header("Custom-Header", "MyValue")
-                .body(userService.addUser(userDTO.getName(), passwordEncoder.encode(userDTO.getPassword())));
+                .body(
+                        userService.addUser(userDTO.getName(), passwordEncoder.encode(userDTO.getPassword()))
+                );
     }
 
     @MessageMapping("/send-message")
