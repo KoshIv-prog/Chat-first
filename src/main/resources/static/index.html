@@ -303,9 +303,15 @@
             })
             .then(data => {
                 console.log(data)
-                if (isFailed) {
+                if (data.userAdmin.value.trim() !== userName.trim() ){
+                    alert("Ви не є адміністратором чату")
                     return;
                 }
+                if (!data.isGroupChat){
+                    alert("Редагування персональних чатів заборонено");
+                    return;
+                }
+
                 toggleChatForm(true);
 
                 if (data.isGroupChat) {
@@ -335,8 +341,6 @@
 
 
 
-                } else {
-                    alert("Редагування персональних чатів заборонено");
                 }
             })
             .catch(error => {
