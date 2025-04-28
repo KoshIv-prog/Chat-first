@@ -303,7 +303,7 @@
             })
             .then(data => {
                 console.log(data)
-                if (data.userAdmin.value.trim() !== userName.trim() ){
+                if (data.userAdmin.value !== userName ){
                     alert("Ви не є адміністратором чату")
                     return;
                 }
