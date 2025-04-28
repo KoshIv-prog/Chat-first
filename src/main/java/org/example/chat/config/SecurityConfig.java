@@ -20,9 +20,14 @@ public class SecurityConfig  {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.csrf().disable()
-                .authorizeRequests()
-                    .antMatchers( "/css/**", "/logout", "/register_new_user", "/register.html").permitAll()
+        http
+                .csrf().disable()
+                    .requiresChannel()
+                    .anyRequest()
+                    .requiresSecure() // <<< обязываем HTTPS для всех запросов
+                .and()
+                    .authorizeRequests()
+                    .antMatchers("/css/**", "/logout", "/register_new_user", "/register.html").permitAll()
                     .anyRequest().authenticated()
                 .and()
                 .formLogin()
