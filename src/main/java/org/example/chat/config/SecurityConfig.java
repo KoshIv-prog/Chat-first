@@ -20,27 +20,22 @@ public class SecurityConfig  {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf().disable()
-                    .requiresChannel()
-                    .anyRequest()
-                    .requiresSecure() // <<< обязываем HTTPS для всех запросов
-                .and()
-                    .authorizeRequests()
-                    .antMatchers("/css/**", "/logout", "/register_new_user", "/register.html").permitAll()
-                    .anyRequest().authenticated()
+        http.csrf().disable()
+                .authorizeRequests()
+                .antMatchers( "/css/**", "/logout", "/register_new_user", "/register.html").permitAll()
+                .anyRequest().authenticated()
                 .and()
                 .formLogin()
-                    .loginPage("/login.html")
-                    .loginProcessingUrl("/j_spring_security_check")
-                    .failureUrl("/login.html?error=true")
-                    .usernameParameter("j_login")
-                    .passwordParameter("j_password")
-                    .permitAll()
+                .loginPage("/login.html")
+                .loginProcessingUrl("/j_spring_security_check")
+                .failureUrl("/login.html?error=true")
+                .usernameParameter("j_login")
+                .passwordParameter("j_password")
+                .permitAll()
                 .and()
-                    .logout()
-                    .logoutUrl("/logout")
-                    .logoutSuccessUrl("/login.html");
+                .logout()
+                .logoutUrl("/logout")
+                .logoutSuccessUrl("/login.html");
 
         return http.build();
     }
