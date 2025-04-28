@@ -22,7 +22,7 @@ public class SecurityConfig  {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf().disable()
                 .authorizeRequests()
-                .antMatchers( "/css/**", "/logout", "/register_new_user", "/register.html").permitAll()
+                .antMatchers( "/css/**", "/logout", "/register-new-user", "/register.html").permitAll()
                 .anyRequest().authenticated()
                 .and()
                     .formLogin()
