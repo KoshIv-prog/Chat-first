@@ -727,7 +727,7 @@
         }
         let checked = document.querySelector('input[name="chatType"]:checked').value;
 
-        var isGroup = (checked === "group");
+        let isGroup = (checked === "group");
 
         const checkboxes = document.querySelectorAll('#user-selection input[type="checkbox"]:checked');
         let users = [userName, ...Array.from(selectedUsers)];
