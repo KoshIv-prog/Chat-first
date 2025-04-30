@@ -303,7 +303,8 @@
             })
             .then(data => {
                 console.log(data)
-                if (data.userAdmin.value !== userName ){
+                console.log(data.userAdmin +"---"+ userName)
+                if (data.userAdmin !== userName ){
                     alert("Ви не є адміністратором чату")
                     return;
                 }
@@ -390,11 +391,11 @@
                     const exit = document.getElementById("close-form");
 
                     if (chatNameInput) {
-                        chatNameInput.value = ''; // Clear chat name input
+                        chatNameInput.value = '';
                     }
 
                     if (radio) {
-                        radio.style.display = 'block'; // Reset display style for radio button
+                        radio.style.display = 'block';
                     }
 
                     if (exit) {
@@ -514,15 +515,14 @@
 
     document.getElementById("messages").addEventListener('scroll', function () {
         if (this.scrollTop <= 10) {
-            loadChatMessages(); // Load previous messages on scroll to top
+            loadChatMessages();
         }
     });
 
 
     function showMessage(author,text,date ,id ,atTop = false ){
-        // Check if a message with the same id already exists
         if (document.getElementById("message-"+id)) {
-            return; // Don't show duplicate messages
+            return;
         }
 
         const newMessage = document.createElement('div');
@@ -836,7 +836,7 @@
         } else {
             selectedUsers.add(username);
             buttonDiv.textContent = "×"
-            containerDiv.style.backgroundColor = '#d4edda'; // світло-зелений
+            containerDiv.style.backgroundColor = '#d4edda';
         }
     }
 

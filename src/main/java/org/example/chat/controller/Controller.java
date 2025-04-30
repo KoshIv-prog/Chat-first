@@ -101,41 +101,50 @@ public class Controller {
 
     @MessageMapping("/send-message")
     public void sendMessage(@Payload MessageDTO messageDTO, Principal principal) {
-        System.out.println("Log:  enter -"+messageDTO.toString()+", to send message");
-        if (messageDTO.getMethod() == null){
-        }else if (messageDTO.getMethod().equals(MessageMethod.ADD_MESSAGE.toString())) {
-            System.out.println("Log:  add message");
-            MessageDTO newMessage = messageService.addMessage(messageDTO.getChatId(),messageDTO.getText(),principal.getName());
-            for (User user : chatService.getAllChatUsers(messageDTO.getChatId())) {
-                messagingTemplate.convertAndSend("/topic/messages-for-user-"+user.getName(),newMessage);
-            }
-
-        }else if(messageDTO.getMethod().equals(MessageMethod.REMOVE_MESSAGE.toString())){
-            System.out.println("Log:  remove message");
-            Long chatId = messageService.removeMessage(messageDTO.getId(),principal.getName());
-            if(chatId != -1L) {
-                for (User user : chatService.getAllChatUsers(chatId)) {
-                    messageDTO.setMethod(MessageMethod.REMOVE_MESSAGE.toString());
-                    messagingTemplate.convertAndSend("/topic/messages-for-user-" + user.getName(), messageDTO);
+        try {
+            System.out.println("Log:  enter -" + messageDTO.toString() + ", to send message");
+            if (messageDTO.getMethod() == null) {
+            } else if (messageDTO.getMethod().equals(MessageMethod.ADD_MESSAGE.toString())) {
+                System.out.println("Log:  add message");
+                MessageDTO newMessage = messageService.addMessage(messageDTO.getChatId(), messageDTO.getText(), principal.getName());
+                for (User user : chatService.getAllChatUsers(messageDTO.getChatId())) {
+                    messagingTemplate.convertAndSend("/topic/messages-for-user-" + user.getName(), newMessage);
                 }
-            }else {
-                messageDTO.setMethod(MessageMethod.ACCESS_ERROR.toString());
-                messagingTemplate.convertAndSend("/topic/messages-for-user-"+principal.getName(), messageDTO);
-            }
 
-        }else if (messageDTO.getMethod().equals(MessageMethod.CHANGE_MESSAGE.toString())){
-            System.out.println("Log:  change message");
-            Long chatId = messageService.editMessage(messageDTO.getId(),principal.getName(),messageDTO.getText());
-            if(chatId != -1L) {
-                for (User user : chatService.getAllChatUsers(chatId)) {
-                    messageDTO.setMethod(MessageMethod.CHANGE_MESSAGE.toString());
-                    messagingTemplate.convertAndSend("/topic/messages-for-user-" + user.getName(), messageDTO);
+            } else if (messageDTO.getMethod().equals(MessageMethod.REMOVE_MESSAGE.toString())) {
+                System.out.println("Log:  remove message");
+                Long chatId = messageService.removeMessage(messageDTO.getId(), principal.getName());
+                if (chatId != -1L) {
+                    for (User user : chatService.getAllChatUsers(chatId)) {
+                        messageDTO.setMethod(MessageMethod.REMOVE_MESSAGE.toString());
+                        messagingTemplate.convertAndSend("/topic/messages-for-user-" + user.getName(), messageDTO);
+                    }
+                } else {
+                    messageDTO.setMethod(MessageMethod.ACCESS_ERROR.toString());
+                    messagingTemplate.convertAndSend("/topic/messages-for-user-" + principal.getName(), messageDTO);
                 }
-            }else {
-                messageDTO.setMethod(MessageMethod.ACCESS_ERROR.toString());
-                messagingTemplate.convertAndSend("/topic/messages-for-user-"+principal.getName(), messageDTO);
-            }
 
+            } else if (messageDTO.getMethod().equals(MessageMethod.CHANGE_MESSAGE.toString())) {
+                System.out.println("Log:  change message");
+                Long chatId = messageService.editMessage(messageDTO.getId(), principal.getName(), messageDTO.getText());
+                if (chatId != -1L) {
+                    for (User user : chatService.getAllChatUsers(chatId)) {
+                        messageDTO.setMethod(MessageMethod.CHANGE_MESSAGE.toString());
+                        messagingTemplate.convertAndSend("/topic/messages-for-user-" + user.getName(), messageDTO);
+                    }
+                } else {
+                    messageDTO.setMethod(MessageMethod.ACCESS_ERROR.toString());
+                    messagingTemplate.convertAndSend("/topic/messages-for-user-" + principal.getName(), messageDTO);
+                }
+
+            }
+        }
+        catch (Exception e){
+            System.out.println("Log:  exception -"+e.getMessage());
+            e.printStackTrace();
+        }
+        finally {
+            System.out.println("Log:  exit -"+messageDTO.toString()+", to send message");
         }
     }
 

@@ -86,6 +86,7 @@ public class ChatService {
 
     @Transactional
     public Response deleteChat(Long chatId,String userName) {
+        System.out.println("Log:  delete chat");
         Optional<Chat> chatOptional = chatRepository.findById(chatId);
         if (chatOptional.isEmpty()) {
             return Response.ERROR;
@@ -97,6 +98,8 @@ public class ChatService {
         messageRepository.deleteAllByChat(chat);
         chatRepository.delete(chat);
 
+        System.out.println("Log:  delete chat confirmed");
+
         return Response.OK;
     }
 
@@ -107,6 +110,7 @@ public class ChatService {
 
     @Transactional
     public Response updateChat(Long chatId,String chatName,List<String> users,String userName) {
+        System.out.println("Log:  update chat");
         Optional<Chat> optionalChat = chatRepository.findById(chatId);
         if (optionalChat.isEmpty()|| users.isEmpty()|| chatName.length()>25) {
             return Response.ERROR;
@@ -136,6 +140,7 @@ public class ChatService {
             }
         });
         chatRepository.save(chat);
+        System.out.println("Log:  update chat confirmed");
 
         return Response.OK;
     }
