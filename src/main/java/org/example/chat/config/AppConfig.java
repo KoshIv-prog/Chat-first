@@ -33,7 +33,7 @@ public class AppConfig extends GlobalMethodSecurityConfiguration {
             public void run(String... strings) throws Exception {
                 userService.addUser("Administrator", new BCryptPasswordEncoder().encode("PASSWORD ADMIN"), UserStatus.ADMIN);
                 User user = userService.findUserByUsername("Administrator");
-                chatService.addChat("Schedule chat",true,List.of(Administrator),"Administrator");
+                chatService.addChat("Schedule chat",true,List.of("Administrator"),"Administrator");
                 messageService.updateDatabase("Administrator");
             }
         };
