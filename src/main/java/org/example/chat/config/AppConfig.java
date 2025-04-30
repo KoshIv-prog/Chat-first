@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 
-@EnableScheduling   //to google cloud not to turn off database
 @Configuration
 @EnableGlobalMethodSecurity(prePostEnabled = true)
 public class AppConfig extends GlobalMethodSecurityConfiguration {
@@ -31,10 +30,6 @@ public class AppConfig extends GlobalMethodSecurityConfiguration {
 
             @Override
             public void run(String... strings) throws Exception {
-                userService.addUser("Administrator", new BCryptPasswordEncoder().encode("PASSWORD ADMIN"), UserStatus.ADMIN);
-                User user = userService.findUserByUsername("Administrator");
-                chatService.addChat("Schedule chat",true,List.of("Administrator"),"Administrator");
-                messageService.updateDatabase("Administrator");
             }
         };
     }

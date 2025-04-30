@@ -166,13 +166,4 @@ public class MessageService {
         messageRepository.save(gotMessage);
         return Response.OK;
     }
-
-
-    @Transactional
-    public void updateDatabase(String userId){
-        User admin = userRepository.findUserByName(userId).get();
-        Chat chat = chatRepository.findChatByChatNameAndUserAdmin("Schedule chat",admin);
-        addMessage(chat.getId(), "System message sent on: " + new Date().toString(), "Administrator");
-    }
-
 }
