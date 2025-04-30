@@ -171,7 +171,7 @@ public class MessageService {
     @Transactional
     public void updateDatabase(String userId){
         User admin = userRepository.findUserByName(userId).get();
-        Chat chat = chatRepository.findChatByUsersAndChatName(List.of(admin),"Schedule chat");
+        Chat chat = chatRepository.findChatByChatNameAndUserAdmin("Schedule chat",admin);
         addMessage(chat.getId(), "System message sent on: " + new Date().toString(), "Administrator");
     }
 

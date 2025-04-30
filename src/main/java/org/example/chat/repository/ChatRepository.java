@@ -18,5 +18,5 @@ public interface ChatRepository extends JpaRepository<Chat, Long> {
     List<Chat> findAllByUsersContaining(User user, PageRequest pageable);
 
     @EntityGraph(attributePaths = {"users", "userAdmin"})
-    Chat findChatByUsersAndChatName(List<User> users, String chatName);
+    Chat findChatByChatNameAndUserAdmin(String chatName, User userAdmin);
 }
