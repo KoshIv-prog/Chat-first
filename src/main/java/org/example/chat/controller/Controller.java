@@ -1,6 +1,7 @@
 package org.example.chat.controller;
 
 import org.example.chat.domain.Chat;
+import org.example.chat.domain.UserStatus;
 import org.example.chat.dto.ChatDTO;
 import org.example.chat.dto.MessageDTO;
 import org.example.chat.dto.MessageMethod;
@@ -89,7 +90,7 @@ public class Controller {
 
     @PostMapping("/register-new-user")
     public ResponseEntity<Response> registerNewUser(@RequestBody UserDTO userDTO) {
-        Response response = userService.addUser(userDTO.getName(), passwordEncoder.encode(userDTO.getPassword()));
+        Response response = userService.addUser(userDTO.getName(), passwordEncoder.encode(userDTO.getPassword()), UserStatus.USER);
         System.out.println("Log:  enter -"+userDTO.toString()+", response - "+response.toString()+ " to register new user");
         return  ResponseEntity.status(HttpStatus.CREATED)
                 .header("Accept-Post", "accept")

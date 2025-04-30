@@ -2,6 +2,7 @@ package org.example.chat.service;
 
 import javax.transaction.Transactional;
 
+import org.example.chat.domain.Chat;
 import org.example.chat.domain.User;
 import org.example.chat.domain.UserStatus;
 import org.example.chat.dto.MessageDTO;
@@ -14,6 +15,7 @@ import org.example.chat.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 
@@ -163,6 +165,14 @@ public class MessageService {
         gotMessage.getHaveNotifiedIds().add(user.get().getId());
         messageRepository.save(gotMessage);
         return Response.OK;
+    }
+
+
+    @Transactional
+    public void updateDatabase(String userId){
+        User admin = userRepository.findUserByName(userId).get();
+        Chat chat = chatRepository.findChatByUsersAndChatName(List.of(admin),"Schedule chat");
+        addMessage(chat.getId(), "System message sent on: " + new Date().toString(), "Administrator");
     }
 
 }

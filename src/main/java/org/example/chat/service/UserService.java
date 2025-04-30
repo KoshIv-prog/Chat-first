@@ -23,14 +23,14 @@ public class UserService {
     }
 
     @Transactional
-    public Response addUser(String username, String password) {
+    public Response addUser(String username, String password, UserStatus status) {
         System.out.println("Log:  registering user");
         if (userRepository.existsUserByName(username)) {
             System.out.println("Log:  user already exists");
             return Response.REGISTER_ERROR;
         }
 
-        userRepository.save(new User(null, username, password, new ArrayList<>(), UserStatus.USER));
+        userRepository.save(new User(null, username, password, new ArrayList<>(), status));
         return Response.OK;
     }
 
