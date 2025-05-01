@@ -8,8 +8,10 @@ import org.example.chat.domain.UserStatus;
 import org.example.chat.repository.UserRepository;
 import org.springframework.data.annotation.ReadOnlyProperty;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import javax.persistence.Temporal;
 import javax.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,5 +50,11 @@ public class UserService {
 
     public User findUserByUsername(String username) {
         return userRepository.findUserByName(username).orElse(null);
+    }
+
+    @Scheduled(fixedRate = 1000*60*15)
+    @Transactional
+    public void countUsers(){
+        userRepository.countAllUsers();
     }
 }

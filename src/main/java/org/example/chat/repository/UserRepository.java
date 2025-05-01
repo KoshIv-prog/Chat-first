@@ -25,5 +25,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query(value = "select u.* from chat_users ch inner join user u on ch.user_id = u.user_id where ch.chat_id =:chatId", nativeQuery = true)
     List<User> findUsersByChatId(@Param("chatId") Long chatId);
 
-
+    @Query("SELECT COUNT(u) FROM User u")
+    long countAllUsers();
 }

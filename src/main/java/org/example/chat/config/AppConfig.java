@@ -20,6 +20,7 @@ import java.util.List;
 
 
 @Configuration
+@EnableScheduling
 @EnableGlobalMethodSecurity(prePostEnabled = true)
 public class AppConfig extends GlobalMethodSecurityConfiguration {
     @Bean
